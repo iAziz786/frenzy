@@ -1,7 +1,8 @@
 package main
 
 import (
-	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 
@@ -31,13 +32,25 @@ func main() {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
-	d := json.NewDecoder(conn)
-
-	var msg client.Message
-
-	err := d.Decode(&msg)
+	// First send the metadata about the connection, like whether the
+	// connection is from a producer or a consumer
+	b, err := ioutil.ReadAll(conn)
 
 	if err != nil {
-		log.Printf("unable to decode %s\n", err)
+		log.Fatal("unable read all the data")
+		return
+	}
+
+	switch string(b) {
+	case string(client.ProducerConn):
+		// do producer stuff
+		fmt.Println(client.ProducerConn)
+		break
+	case string(client.ConsumerConn):
+		// do consumer stuff
+		fmt.Println(client.ConsumerConn)
+		break
+	default:
+		log.Fatalln("unknown connection type")
 	}
 }

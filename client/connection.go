@@ -5,6 +5,9 @@ import (
 	"net"
 )
 
+// ConnType holds whether the connection is consumer or producer
+type ConnType string
+
 // Connection creates a connection to the Kafka cluster and use that
 // connection to give you producer and consumer
 type Connection struct {
@@ -26,5 +29,20 @@ func (c Connection) GetProducer() (*Producer, error) {
 		return nil, errors.New("unable to dial to the broker")
 	}
 
+	conn.Write([]byte(ProducerConn))
+
 	return &Producer{conn: conn}, nil
+}
+
+// GetConsumer creates a consumer which then used to read the events
+func (c Connection) GetConsumer() (*Consumer, error) {
+	conn, err := net.Dial("tcp", c.brokers)
+
+	if err != nil {
+		return nil, errors.New("unable to dial to the broker")
+	}
+
+	conn.Write([]byte(ConsumerConn))
+
+	return &Consumer{conn: conn}, nil
 }
