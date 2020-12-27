@@ -1,10 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"io/ioutil"
+	"bufio"
+	"encoding/json"
+	"io"
 	"log"
 	"net"
+	"strings"
 
 	"github.com/iAziz786/frenzy/client"
 )
@@ -18,39 +20,98 @@ func main() {
 
 	defer l.Close()
 
+	msgStream := make(chan client.Message)
+
+	defer close(msgStream)
+
 	for {
 		conn, err := l.Accept()
 
 		if err != nil {
 			log.Printf("unable to accept connection %s\n", err)
+			continue
 		}
 
-		go handleConn(conn)
+		go handleConn(conn, msgStream)
 	}
 }
 
-func handleConn(conn net.Conn) {
+func handleConn(conn net.Conn, msgStream chan client.Message) {
 	defer conn.Close()
 
 	// First send the metadata about the connection, like whether the
 	// connection is from a producer or a consumer
-	b, err := ioutil.ReadAll(conn)
+	reader := bufio.NewReader(conn)
+	b, err := reader.ReadString('\n')
 
 	if err != nil {
-		log.Fatal("unable read all the data")
+		log.Fatalf("unable read all the data %s\n", err)
 		return
 	}
 
-	switch string(b) {
+	// Removing the whitespace which is not necessary
+	b = strings.Trim(b, "\n")
+
+	switch b {
 	case string(client.ProducerConn):
 		// do producer stuff
-		fmt.Println(client.ProducerConn)
+		defer func() {
+			for {
+				var m client.Message
+
+				b := make([]byte, 1e2)
+
+				n, err := conn.Read(b)
+
+				if err == io.EOF {
+					// connection closed
+					log.Println("producer closed the connection")
+					return
+				}
+
+				if err != nil {
+					log.Printf("unable to read %s", err)
+					continue
+				}
+
+				b = b[:n]
+
+				if err != nil {
+					log.Printf("unable to read all %s\n", err)
+					continue
+				}
+
+				err = json.Unmarshal(b, &m)
+
+				if err != nil {
+					log.Printf("unable to unmarshal %s\n", err)
+					continue
+				}
+
+				msgStream <- m
+			}
+		}()
 		break
 	case string(client.ConsumerConn):
 		// do consumer stuff
-		fmt.Println(client.ConsumerConn)
+		defer func() {
+			for msg := range msgStream {
+
+				b, err := json.Marshal(&msg)
+
+				if err != nil {
+					log.Fatalf("unable to marshal %s", err)
+				}
+
+				_, err = conn.Write(b)
+
+				if err != nil {
+					log.Fatalf("unable to write to consumer %s", err)
+				}
+			}
+		}()
 		break
 	default:
-		log.Fatalln("unknown connection type")
+		log.Println("unknown connection type")
 	}
 }

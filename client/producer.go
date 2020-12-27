@@ -18,15 +18,14 @@ type Producer struct {
 
 // Send sends the provided message to the connection
 func (p Producer) Send(msg Message) error {
-	b, err := json.Marshal(Message{
-		Value: []byte("hello"),
-	})
+	b, err := json.Marshal(msg)
 
 	if err != nil {
 		log.Printf("unable to marshal the value %s\n", err)
 	}
 
 	_, err = p.conn.Write(b)
+
 	if err != nil {
 		return err
 	}

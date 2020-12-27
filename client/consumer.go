@@ -21,21 +21,24 @@ type Consumer struct {
 // Read reads the income message prodcue by the producer if the there is any
 // error the message will be nil and error value will contain some value
 func (c Consumer) Read() (*Message, error) {
-	var m Message
+	// TODO: max 1kb read is supported, in future that will be
+	// configurable
+	b := make([]byte, 1e3)
 
-	b, err := json.Marshal(&m)
+	n, err := c.conn.Read(b)
 
-	if err != nil {
-		log.Printf("unable to marshal message to read %s", err)
-
-		return nil, err
-	}
-
-	_, err = c.conn.Read(b)
+	b = b[:n]
 
 	if err != nil {
 		log.Printf("unable to read message %s", err)
 
+		return nil, err
+	}
+
+	var m Message
+	err = json.Unmarshal(b, &m)
+
+	if err != nil {
 		return nil, err
 	}
 

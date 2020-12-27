@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"net"
 )
 
@@ -29,7 +30,15 @@ func (c Connection) GetProducer() (*Producer, error) {
 		return nil, errors.New("unable to dial to the broker")
 	}
 
-	conn.Write([]byte(ProducerConn))
+	// TODO: This is way to inform the broker that this connection is
+	// producer type but this approach is most likely to change. The
+	// broker does not need to know whether the connection type. It should
+	// write it's logic by read from or to the connection.
+	_, err = conn.Write([]byte(fmt.Sprintln(ProducerConn)))
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &Producer{conn: conn}, nil
 }
@@ -42,7 +51,15 @@ func (c Connection) GetConsumer() (*Consumer, error) {
 		return nil, errors.New("unable to dial to the broker")
 	}
 
-	conn.Write([]byte(ConsumerConn))
+	// TODO: This is way to inform the broker that this connection is
+	// consumer type but this approach is most likely to change. The
+	// broker does not need to know whether the connection type. It should
+	// write it's logic by read from or to the connection.
+	_, err = conn.Write([]byte(fmt.Sprintln(ConsumerConn)))
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &Consumer{conn: conn}, nil
 }
