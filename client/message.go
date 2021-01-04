@@ -4,4 +4,5 @@ package client
 // consumer
 type Message struct {
 	Value []byte
+	Topic string
 }

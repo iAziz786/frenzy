@@ -3,12 +3,14 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net"
 	"strings"
 
 	"github.com/iAziz786/frenzy/client"
+	"github.com/iAziz786/frenzy/server"
 )
 
 func main() {
@@ -32,11 +34,11 @@ func main() {
 			continue
 		}
 
-		go handleConn(conn, msgStream)
+		go handleConn(conn)
 	}
 }
 
-func handleConn(conn net.Conn, msgStream chan client.Message) {
+func handleConn(conn net.Conn) {
 	defer conn.Close()
 
 	// First send the metadata about the connection, like whether the
@@ -55,63 +57,35 @@ func handleConn(conn net.Conn, msgStream chan client.Message) {
 	switch b {
 	case string(client.ProducerConn):
 		// do producer stuff
-		defer func() {
-			for {
-				var m client.Message
-
-				b := make([]byte, 1e2)
-
-				n, err := conn.Read(b)
-
-				if err == io.EOF {
-					// connection closed
-					log.Println("producer closed the connection")
-					return
-				}
-
-				if err != nil {
-					log.Printf("unable to read %s", err)
-					continue
-				}
-
-				b = b[:n]
-
-				if err != nil {
-					log.Printf("unable to read all %s\n", err)
-					continue
-				}
-
-				err = json.Unmarshal(b, &m)
-
-				if err != nil {
-					log.Printf("unable to unmarshal %s\n", err)
-					continue
-				}
-
-				msgStream <- m
-			}
-		}()
+		defer server.Produce(conn)
 		break
 	case string(client.ConsumerConn):
 		// do consumer stuff
-		defer func() {
-			for msg := range msgStream {
+		msg, err := readClientMessage(conn)
 
-				b, err := json.Marshal(&msg)
+		if err != nil {
+			log.Printf("unable to read initial boostrap data %s", err)
+			return
+		}
 
-				if err != nil {
-					log.Fatalf("unable to marshal %s", err)
-				}
-
-				_, err = conn.Write(b)
-
-				if err != nil {
-					log.Fatalf("unable to write to consumer %s", err)
-				}
-			}
-		}()
+		defer server.Consume(conn, msg.Topic)
 		break
 	default:
 		log.Println("unknown connection type")
 	}
+}
+
+func readClientMessage(reader io.Reader) (*client.Message, error) {
+	b := make([]byte, 1e2)
+	n, err := reader.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	b = b[:n]
+
+	var msg client.Message
+	if err := json.Unmarshal(b, &msg); err != nil {
+		return nil, errors.New("unable to covert client message")
+	}
+	return &msg, nil
 }

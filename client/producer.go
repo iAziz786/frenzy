@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net"
 )
@@ -18,6 +19,10 @@ type Producer struct {
 
 // Send sends the provided message to the connection
 func (p Producer) Send(msg Message) error {
+	if msg.Topic == "" {
+		return errors.New("topic name is missing")
+	}
+
 	b, err := json.Marshal(msg)
 
 	if err != nil {
