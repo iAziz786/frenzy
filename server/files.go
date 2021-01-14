@@ -1,22 +1,22 @@
 package server
 
 import (
-	"bufio"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/iAziz786/frenzy/constant"
 )
 
 // CreateFolderIfNotExist will create a folder if it's not already exist
 func CreateFolderIfNotExist(topic string) (string, error) {
-	fullPath := filepath.Join(LogRoot, topic)
-	fmt.Println(fullPath)
+	fullPath := filepath.Join(constant.LogRoot, topic)
 	if _, err := os.Stat(fullPath); err != nil {
 		if os.IsNotExist(err) {
+			log.Println("creating new folder for topic:", topic)
 			if err := os.MkdirAll(fullPath, os.ModePerm); err != nil {
-				fmt.Printf("%s", err)
-				return "", ErrMakeDir
+				log.Printf("unable to create directory %s\n", err)
+				return "", constant.ErrMakeDir
 			}
 		}
 
@@ -46,21 +46,20 @@ func CreateLogFile(topic string) (*os.File, error) {
 
 // ReadLogFile will return a channel where it will send the message of the
 // topic
-func ReadLogFile(topic string) chan string {
-	msgStream := make(chan string)
+func ReadLogFile(topic string) chan []byte {
+	msgStream := make(chan []byte)
 
 	go func() {
-		file, err := os.Open(filepath.Join(LogRoot, topic, getLogFileName()))
+		file, err := os.Open(filepath.Join(constant.LogRoot, topic, getLogFileName()))
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer file.Close()
 
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			msgStream <- line
+		for {
+			if b, err := Poll(file); err == nil && len(b) > 0 {
+				msgStream <- b
+			}
 		}
 	}()
 

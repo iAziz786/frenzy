@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"net"
+
+	"github.com/iAziz786/frenzy/constant"
 )
 
 const (
@@ -29,7 +31,7 @@ func (p Producer) Send(msg Message) error {
 		log.Printf("unable to marshal the value %s\n", err)
 	}
 
-	_, err = p.conn.Write(b)
+	_, err = p.conn.Write(append(b, byte(constant.MsgEndIdent)))
 
 	if err != nil {
 		return err

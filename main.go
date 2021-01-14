@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/iAziz786/frenzy/client"
+	"github.com/iAziz786/frenzy/constant"
 	"github.com/iAziz786/frenzy/server"
 )
 
@@ -44,7 +45,7 @@ func handleConn(conn net.Conn) {
 	// First send the metadata about the connection, like whether the
 	// connection is from a producer or a consumer
 	reader := bufio.NewReader(conn)
-	b, err := reader.ReadString('\n')
+	b, err := reader.ReadString(constant.MsgEndIdent)
 
 	if err != nil {
 		log.Fatalf("unable read all the data %s\n", err)
@@ -52,7 +53,7 @@ func handleConn(conn net.Conn) {
 	}
 
 	// Removing the whitespace which is not necessary
-	b = strings.Trim(b, "\n")
+	b = strings.Trim(b, string(constant.MsgEndIdent))
 
 	switch b {
 	case string(client.ProducerConn):

@@ -1,11 +1,13 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"log"
 	"net"
-	"strings"
+
+	"github.com/iAziz786/frenzy/constant"
 )
 
 const (
@@ -28,7 +30,7 @@ type Consumer struct {
 func (c Consumer) Read() ([]Message, error) {
 	// TODO: max 1kb read is supported, in future that will be
 	// configurable
-	b := make([]byte, 1e3)
+	b := make([]byte, 1e6)
 
 	n, err := c.conn.Read(b)
 
@@ -39,16 +41,23 @@ func (c Consumer) Read() ([]Message, error) {
 
 	b = b[:n]
 
-	msgJSONStrings := strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
+	msgJSONBytes := bytes.Split(
+		bytes.Trim(b, string(constant.MsgEndIdent)),
+		[]byte{constant.MsgEndIdent},
+	)
 
 	messages := []Message{}
 
-	for _, msgString := range msgJSONStrings {
+	for _, msgBytes := range msgJSONBytes {
+		if len(msgBytes) < 0 {
+			continue
+		}
 		var m Message
-		err = json.Unmarshal([]byte(msgString), &m)
+		err = json.Unmarshal(msgBytes, &m)
 
 		if err != nil {
-			return nil, err
+			log.Printf("error while unmarshal JSON %s %s", string(msgBytes), err)
+			continue
 		}
 
 		messages = append(messages, m)
